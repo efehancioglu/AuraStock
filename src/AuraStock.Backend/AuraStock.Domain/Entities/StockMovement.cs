@@ -5,11 +5,11 @@ namespace AuraStock.Domain.Entities;
 
 public class StockMovement : BaseEntity
 {
-    public Guid ProductId { get; private set; }
-    public MovementType Type { get; private set; }
-    public int Quantity { get; private set; }
-    public DateTime MovementDate { get; private set; }
-    public string ReferenceNumber { get; private set; }
+    public Guid ProductId { get; set; }
+    public MovementType Type { get; set; }
+    public int Quantity { get; set; }
+    public DateTime MovementDate { get; set; }
+    public string ReferenceNumber { get; set; }
 
     private StockMovement() { }
 

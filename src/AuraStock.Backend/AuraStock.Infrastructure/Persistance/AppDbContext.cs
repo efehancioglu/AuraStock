@@ -1,9 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using AuraStock.Domain.Entities;
+using AuraStock.Application.Interfaces;
 
 namespace AuraStock.Infrastructure.Persistence;
 
-public class AppDbContext : DbContext
+public class AppDbContext : DbContext, IAppDbContext
 {
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
     {
@@ -16,7 +17,7 @@ public class AppDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
-        modelBuilder.Entity<Product>().Property(p => p.UnitCost).HasPrecision(18,2);
+        modelBuilder.Entity<Product>().Property(p => p.UnitCost).HasPrecision(18, 2);
     }
 
 }
