@@ -1,5 +1,6 @@
 using AuraStock.Infrastructure;
 using AuraStock.Application.Products.Commands.CreateProduct;
+using AuraStock.API.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,6 +10,14 @@ builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblies(typeof(Cre
 builder.Services.AddControllers();
 
 var app = builder.Build();
+
+app.UseMiddleware<ExceptionHandlingMiddleware>();
+
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+}
+
 
 app.UseHttpsRedirection();
 
