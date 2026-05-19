@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using MediatR;
 using AuraStock.Application.Products.Commands.CreateProduct;
 using AuraStock.Application.Products.Queries.GetProductById;
+using AuraStock.Application.Products.Queries.GetProductWithStock;
 
 namespace AuraStock.API.Controllers;
 
@@ -31,8 +32,17 @@ public class ProductsController : ControllerBase
         var product = await _mediator.Send(query);
 
         if (product is null)
-            return NotFound(new { Message = "Aradiginiz urun bulunamadi."});
-        
+            return NotFound(new { Message = "Aradiginiz urun bulunamadi." });
+
         return Ok(product);
+    }
+
+    [HttpGet("with-stock")]
+    public async Task<IActionResult> GetProductsWithStock()
+    {
+        var query = new GetProductsWithStockQuery();
+        var result = await _mediator.Send(query);
+
+        return Ok(result);
     }
 }
