@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import apiClient from '../api/axiosClient';
+import { Trash2 } from 'lucide-react';
 
 const Products = () => {
     // Tablo için State'ler
@@ -14,7 +15,7 @@ const Products = () => {
         unitCost: ''
     });
 
-    // Ürünleri Getirme Fonksiyonu (Eski App.jsx'teki kodumuz)
+    // Ürünleri Getirme Fonksiyonu
     const fetchProducts = () => {
         setIsLoading(true);
         apiClient.get('/products/with-stock')
@@ -51,37 +52,43 @@ const Products = () => {
 
     // Form gönderildiğinde çalışacak asıl POST işlemimiz
     const handleSubmit = async (e) => {
-        e.preventDefault(); // Sayfanın klasik HTML formu gibi yenilenmesini engeller
+        e.preventDefault();
 
         try {
-            // 1. Backend'in beklediği isimlere göre veri paketini (Payload) hazırlıyoruz
-            // Not: Backend'deki C# nesnemiz ProductSku ve ProductName beklediği için eşleştiriyoruz.
             const payload = {
                 sku: formData.sku,
                 name: formData.name,
-                unitCost: parseFloat(formData.unitCost) // Backend decimal beklediği için sayıya çeviriyoruz
+                unitCost: parseFloat(formData.unitCost)
             };
 
-            // 2. Axios ile POST isteğini atıyoruz
             await apiClient.post('/products', payload);
 
-            // 3. İstek başarılı olursa formu tertemiz yapıyoruz
             setFormData({
                 sku: '',
                 name: '',
                 unitCost: ''
             });
 
-            // 4. Tablodaki verileri yeniden çekerek güncel listeyi anında ekrana yansıtıyoruz
             fetchProducts();
 
         } catch (err) {
             console.error("Ürün eklenirken hata oluştu:", err);
-
-            // Hatırlarsan Backend'de Global Exception Handling yazmıştık. 
-            // Oradan gelen o temiz 'message' değerini burada yakalayıp ekrana basıyoruz!
             const errorMessage = err.response?.data?.message || "Ürün eklenirken sistemsel bir hata oluştu.";
             alert(`Hata: ${errorMessage}`);
+        }
+    };
+
+    const handleDelete = async (id, name) => {
+        const isConfirmed = window.confirm(`"${name}" adlı ürünü silmek istediğinize emin misiniz?`);
+
+        if (isConfirmed) {
+            try {
+                await apiClient.delete(`/products/${id}`);
+                fetchProducts();
+            } catch (err) {
+                console.error("Silme işlemi başarısız:", err);
+                alert("Ürün silinirken bir hata oluştu. Lütfen konsolu kontrol edin.");
+            }
         }
     };
 
@@ -169,17 +176,18 @@ const Products = () => {
                                     <th className="py-3 px-6 font-semibold">Ürün Adı</th>
                                     <th className="py-3 px-6 font-semibold text-right">Birim Maliyet</th>
                                     <th className="py-3 px-6 font-semibold text-center">Stok</th>
+                                    <th className="py-3 px-6 font-semibold text-center">İşlemler</th>
                                 </tr>
                             </thead>
                             <tbody className="text-slate-700 text-sm">
                                 {isLoading && (
-                                    <tr><td colSpan="4" className="py-8 text-center text-slate-500">Veriler yükleniyor...</td></tr>
+                                    <tr><td colSpan="5" className="py-8 text-center text-slate-500">Veriler yükleniyor...</td></tr>
                                 )}
                                 {error && (
-                                    <tr><td colSpan="4" className="py-8 text-center text-red-500 font-medium">{error}</td></tr>
+                                    <tr><td colSpan="5" className="py-8 text-center text-red-500 font-medium">{error}</td></tr>
                                 )}
                                 {!isLoading && !error && Array.isArray(products) && products.length === 0 && (
-                                    <tr><td colSpan="4" className="py-8 text-center text-slate-500">Sistemde ürün bulunmuyor.</td></tr>
+                                    <tr><td colSpan="5" className="py-8 text-center text-slate-500">Sistemde ürün bulunmuyor.</td></tr>
                                 )}
                                 {!isLoading && !error && Array.isArray(products) && products.map((product) => (
                                     <tr key={product.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
@@ -188,10 +196,19 @@ const Products = () => {
                                         <td className="py-3 px-6 text-right font-medium">{product.unitCost} ₺</td>
                                         <td className="py-3 px-6 text-center">
                                             <span className={`px-2 py-1 rounded-md text-xs font-bold ${product.currentStock > 10 ? 'bg-emerald-100 text-emerald-700' :
-                                                product.currentStock > 0 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                                                    product.currentStock > 0 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
                                                 }`}>
                                                 {product.currentStock}
                                             </span>
+                                        </td>
+                                        <td className="py-3 px-6 text-center">
+                                            <button
+                                                onClick={() => handleDelete(product.id, product.name)}
+                                                className="text-slate-400 hover:text-red-500 transition-colors p-1 rounded-md hover:bg-red-50"
+                                                title="Ürünü Sil"
+                                            >
+                                                <Trash2 size={18} />
+                                            </button>
                                         </td>
                                     </tr>
                                 ))}

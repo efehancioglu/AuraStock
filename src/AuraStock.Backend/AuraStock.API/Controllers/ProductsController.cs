@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using MediatR;
 using AuraStock.Application.Products.Commands.CreateProduct;
+using AuraStock.Application.Products.Commands.DeleteProduct;
 using AuraStock.Application.Products.Queries.GetProductById;
 using AuraStock.Application.Products.Queries.GetProductWithStock;
 
@@ -44,5 +45,14 @@ public class ProductsController : ControllerBase
         var result = await _mediator.Send(query);
 
         return Ok(result);
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteProduct(Guid id)
+    {
+        var command = new DeleteProductCommand { Id = id };
+        await _mediator.Send(command);
+
+        return NoContent();
     }
 }
