@@ -1,122 +1,85 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useState, useEffect } from 'react';
+import apiClient from './api/axiosClient';
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [products, setProducts] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    apiClient.get('http://localhost:5117/api/products/with-stock')
+      .then((response) => {
+        // 1. Gelen veriyi konsola basalım ki neye benzediğini görelim
+        console.log("API'den Gelen Ham Cevap:", response.data);
+
+        // 2. Savunmacı Kod: Gelen veri gerçekten bir dizi (array) mi?
+        if (Array.isArray(response.data)) {
+          setProducts(response.data);
+        } else if (response.data && Array.isArray(response.data.data)) {
+          // Bazen API'ler veriyi { data: [...] } şeklinde bir nesne içine sarar
+          setProducts(response.data.data);
+        } else {
+          // Hiçbiri değilse sistemi patlatmak yerine boş liste atıyoruz
+          console.warn("Beklenmeyen veri formatı geldi!");
+          setProducts([]);
+        }
+
+        setIsLoading(false);
+      })
+      .catch((err) => {
+        console.error("API Error:", err);
+        setError("Veriler yüklenirken bir hata oluştu. Backend çalışıyor mu?");
+        setIsLoading(false);
+      });
+  }, []);
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div className="min-h-screen bg-slate-50 p-8">
+      <div className="max-w-6xl mx-auto">
+        <h1 className="text-3xl font-bold text-slate-800 mb-6">Envanter Durumu</h1>
 
-      <div className="ticks"></div>
+        {isLoading && <p className="text-slate-500">Veriler getiriliyor...</p>}
+        {error && <p className="text-red-500 font-semibold">{error}</p>}
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+        {!isLoading && !error && (
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-100 text-slate-600 uppercase text-sm leading-normal">
+                  <th className="py-3 px-6 font-semibold">SKU</th>
+                  <th className="py-3 px-6 font-semibold">Ürün Adı</th>
+                  <th className="py-3 px-6 font-semibold">Birim Maliyet</th>
+                  <th className="py-3 px-6 font-semibold text-center">Güncel Stok</th>
+                </tr>
+              </thead>
+              <tbody className="text-slate-700 text-sm">
+                {/* 3. Savunmacı Kod: Sadece products bir diziyse map işlemini çalıştır */}
+                {Array.isArray(products) && products.map((product) => (
+                  <tr key={product.id} className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
+                    <td className="py-3 px-6 font-medium">{product.sku}</td>
+                    <td className="py-3 px-6">{product.name}</td>
+                    <td className="py-3 px-6">{product.unitCost} ₺</td>
+                    <td className="py-3 px-6 text-center">
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${product.currentStock > 10 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                        }`}>
+                        {product.currentStock}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+            {Array.isArray(products) && products.length === 0 && (
+              <div className="p-6 text-center text-slate-500">
+                Sistemde henüz ürün bulunmamaktadır.
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
-export default App
+export default App;
