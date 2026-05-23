@@ -1,32 +1,28 @@
 import { useState, useEffect } from 'react';
 import apiClient from '../api/axiosClient';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Edit } from 'lucide-react'; // Edit ikonunu ekledik
 
 const Products = () => {
-    // Tablo için State'ler
     const [products, setProducts] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    // Form için State
+    // YENİ: Hangi ürünü düzenlediğimizi tutacak state (null ise ekleme modundayız demektir)
+    const [editingId, setEditingId] = useState(null);
+
     const [formData, setFormData] = useState({
         sku: '',
         name: '',
         unitCost: ''
     });
 
-    // Ürünleri Getirme Fonksiyonu
     const fetchProducts = () => {
         setIsLoading(true);
         apiClient.get('/products/with-stock')
             .then((response) => {
-                if (Array.isArray(response.data)) {
-                    setProducts(response.data);
-                } else if (response.data && Array.isArray(response.data.data)) {
-                    setProducts(response.data.data);
-                } else {
-                    setProducts([]);
-                }
+                if (Array.isArray(response.data)) setProducts(response.data);
+                else if (response.data && Array.isArray(response.data.data)) setProducts(response.data.data);
+                else setProducts([]);
                 setIsLoading(false);
             })
             .catch((err) => {
@@ -36,77 +32,85 @@ const Products = () => {
             });
     };
 
-    // Sayfa açıldığında verileri çek
     useEffect(() => {
         fetchProducts();
     }, []);
 
-    // Form elemanları değiştikçe state'i güncelle
     const handleInputChange = (e) => {
         const { name, value } = e.target;
+        setFormData({ ...formData, [name]: value });
+    };
+
+    // YENİ: Tablodaki Düzenle butonuna basılınca çalışacak fonksiyon
+    const handleEditClick = (product) => {
+        setEditingId(product.id);
         setFormData({
-            ...formData,
-            [name]: value
+            sku: product.sku,
+            name: product.name,
+            unitCost: product.unitCost
         });
     };
 
-    // Form gönderildiğinde çalışacak asıl POST işlemimiz
+    // YENİ: Düzenlemekten vazgeçilirse formu sıfırlayacak fonksiyon
+    const cancelEdit = () => {
+        setEditingId(null);
+        setFormData({ sku: '', name: '', unitCost: '' });
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
-
         try {
             const payload = {
+                id: editingId, // Sadece PUT işleminde dolu gider, POST'ta null olur
                 sku: formData.sku,
                 name: formData.name,
                 unitCost: parseFloat(formData.unitCost)
             };
 
-            await apiClient.post('/products', payload);
+            // Akıllı Form: ID varsa PUT yap, yoksa POST yap!
+            if (editingId) {
+                await apiClient.put(`/products/${editingId}`, payload);
+            } else {
+                await apiClient.post('/products', payload);
+            }
 
-            setFormData({
-                sku: '',
-                name: '',
-                unitCost: ''
-            });
-
+            cancelEdit(); // İşlem bitince formu temizle
             fetchProducts();
 
         } catch (err) {
-            console.error("Ürün eklenirken hata oluştu:", err);
-            const errorMessage = err.response?.data?.message || "Ürün eklenirken sistemsel bir hata oluştu.";
+            console.error("İşlem sırasında hata oluştu:", err);
+            const errorMessage = err.response?.data?.message || "Sistemsel bir hata oluştu.";
             alert(`Hata: ${errorMessage}`);
         }
     };
 
     const handleDelete = async (id, name) => {
         const isConfirmed = window.confirm(`"${name}" adlı ürünü silmek istediğinize emin misiniz?`);
-
         if (isConfirmed) {
             try {
                 await apiClient.delete(`/products/${id}`);
                 fetchProducts();
             } catch (err) {
                 console.error("Silme işlemi başarısız:", err);
-                alert("Ürün silinirken bir hata oluştu. Lütfen konsolu kontrol edin.");
+                alert("Ürün silinirken bir hata oluştu.");
             }
         }
     };
 
     return (
         <div className="flex flex-col gap-6">
-
-            {/* Üst Başlık */}
             <div>
                 <h2 className="text-2xl font-bold text-slate-800">Ürün Yönetimi</h2>
-                <p className="text-slate-500 text-sm mt-1">Sisteme yeni ürün ekleyebilir ve mevcut envanteri görüntüleyebilirsiniz.</p>
+                <p className="text-slate-500 text-sm mt-1">Sisteme yeni ürün ekleyebilir, mevcut envanteri güncelleyebilir veya silebilirsiniz.</p>
             </div>
 
-            {/* Ekranı İkiye Bölen Grid Yapısı */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-                {/* SOL TARAF: Yeni Ürün Ekleme Formu */}
-                <div className="lg:col-span-1 bg-white p-6 rounded-xl shadow-sm border border-slate-200 h-fit">
-                    <h3 className="text-lg font-semibold text-slate-800 mb-4 border-b pb-2">Yeni Ürün Ekle</h3>
+                {/* Akıllı Form: Başlık state'e göre değişiyor */}
+                <div className="lg:col-span-1 bg-white p-6 rounded-xl shadow-sm border border-slate-200 h-fit transition-all duration-300">
+                    <h3 className="text-lg font-semibold text-slate-800 mb-4 border-b pb-2">
+                        {editingId ? "Ürünü Düzenle" : "Yeni Ürün Ekle"}
+                    </h3>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
@@ -116,12 +120,10 @@ const Products = () => {
                                 name="sku"
                                 value={formData.sku}
                                 onChange={handleInputChange}
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                placeholder="Örn: ELK-001"
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 required
                             />
                         </div>
-
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-1">Ürün Adı</label>
                             <input
@@ -129,12 +131,10 @@ const Products = () => {
                                 name="name"
                                 value={formData.name}
                                 onChange={handleInputChange}
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                placeholder="Örn: Kablosuz Mouse"
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 required
                             />
                         </div>
-
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-1">Birim Maliyet (₺)</label>
                             <input
@@ -144,22 +144,36 @@ const Products = () => {
                                 onChange={handleInputChange}
                                 step="0.01"
                                 min="0"
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                placeholder="0.00"
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 required
                             />
                         </div>
 
-                        <button
-                            type="submit"
-                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors mt-2"
-                        >
-                            Ürünü Kaydet
-                        </button>
+                        {/* Butonlar state'e göre değişiyor */}
+                        <div className="flex flex-col gap-2 mt-4">
+                            <button
+                                type="submit"
+                                className={`w-full font-medium py-2 px-4 rounded-lg transition-colors text-white ${editingId ? 'bg-amber-500 hover:bg-amber-600' : 'bg-blue-600 hover:bg-blue-700'
+                                    }`}
+                            >
+                                {editingId ? "Değişiklikleri Kaydet" : "Ürünü Kaydet"}
+                            </button>
+
+                            {/* Düzenleme modundaysak İptal butonu göster */}
+                            {editingId && (
+                                <button
+                                    type="button"
+                                    onClick={cancelEdit}
+                                    className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-2 px-4 rounded-lg transition-colors"
+                                >
+                                    İptal Et
+                                </button>
+                            )}
+                        </div>
                     </form>
                 </div>
 
-                {/* SAĞ TARAF: Ürün Tablosu */}
+                {/* Sağ Taraf: Ürün Tablosu */}
                 <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     <div className="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
                         <h3 className="text-lg font-semibold text-slate-800">Mevcut Ürünler</h3>
@@ -202,13 +216,25 @@ const Products = () => {
                                             </span>
                                         </td>
                                         <td className="py-3 px-6 text-center">
-                                            <button
-                                                onClick={() => handleDelete(product.id, product.name)}
-                                                className="text-slate-400 hover:text-red-500 transition-colors p-1 rounded-md hover:bg-red-50"
-                                                title="Ürünü Sil"
-                                            >
-                                                <Trash2 size={18} />
-                                            </button>
+                                            <div className="flex justify-center gap-2">
+                                                {/* YENİ: Düzenle Butonu */}
+                                                <button
+                                                    onClick={() => handleEditClick(product)}
+                                                    className="text-slate-400 hover:text-amber-500 transition-colors p-1 rounded-md hover:bg-amber-50"
+                                                    title="Ürünü Düzenle"
+                                                >
+                                                    <Edit size={18} />
+                                                </button>
+
+                                                {/* Silme Butonu */}
+                                                <button
+                                                    onClick={() => handleDelete(product.id, product.name)}
+                                                    className="text-slate-400 hover:text-red-500 transition-colors p-1 rounded-md hover:bg-red-50"
+                                                    title="Ürünü Sil"
+                                                >
+                                                    <Trash2 size={18} />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
@@ -216,7 +242,6 @@ const Products = () => {
                         </table>
                     </div>
                 </div>
-
             </div>
         </div>
     );
