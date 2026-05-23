@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using MediatR;
 using AuraStock.Application.Products.Commands.CreateProduct;
 using AuraStock.Application.Products.Commands.DeleteProduct;
+using AuraStock.Application.Products.Commands.UpdateProduct;
 using AuraStock.Application.Products.Queries.GetProductById;
 using AuraStock.Application.Products.Queries.GetProductWithStock;
 
@@ -53,6 +54,18 @@ public class ProductsController : ControllerBase
         var command = new DeleteProductCommand { Id = id };
         await _mediator.Send(command);
 
+        return NoContent();
+    }
+
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateProduct(Guid id, [FromBody] UpdateProductCommand command)
+    {
+        if (id != command.Id)
+        {
+            command.Id = id;
+        }
+
+        await _mediator.Send(command);
         return NoContent();
     }
 }

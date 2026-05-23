@@ -22,12 +22,15 @@ public class Product : BaseEntity
         CreatedAt = DateTime.UtcNow;
     }
 
-    public void UpdateCost(decimal newCost)
+    public void UpdateDetails(string sku, string name, decimal newCost)
     {
         if (newCost < 0)
-            throw new ArgumentException("Unit cost cannot be less than zero.");
+            throw new ArgumentException("Birim fiyat 0'dan dusuk olamaz.");
 
+        ProductSku = sku;
+        ProductName = name;
         UnitCost = newCost;
+
         LastModifiedAt = DateTime.UtcNow;
     }
 }
