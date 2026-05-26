@@ -1,38 +1,48 @@
 import { useState, useEffect } from 'react';
 import apiClient from '../api/axiosClient';
-import { Package, Activity, Calendar, AlertTriangle, TrendingUp } from 'lucide-react';
+import { Package, Activity, Calendar, AlertTriangle, AlertOctagon, CheckCircle2 } from 'lucide-react';
 
 const Dashboard = () => {
-    // 1. STATE (DURUM) YÖNETİMİ
-    // Programlamada State, bir bileşenin o anki hafızasıdır. 
-    // API'den veri gelene kadar ekranın boş kalmaması veya hata vermemesi için başlangıç değerleri (0) atıyoruz.
+    // Stateler
     const [stats, setStats] = useState({
         totalProducts: 0,
         totalMovements: 0,
         todayMovementsCount: 0,
         outOfStockAlerts: 0
     });
+    const [criticalProducts, setCriticalProducts] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
 
-
+    // API İstekleri
     useEffect(() => {
         const fetchDashboardData = async () => {
             try {
-                //Backend'deki Dashboard kapısını çalıyoruz.
-                const response = await apiClient.get('/dashboard/summary');
-                setStats(response.data);
+                // Her iki veriyi eşzamanlı (paralel) çekerek hızı ikiye katlıyoruz
+                const [summaryRes, criticalRes] = await Promise.all([
+                    apiClient.get('/dashboard/summary'),
+                    apiClient.get('/dashboard/critical-stock?threshold=20')
+                ]);
+
+                // Kritik ürün sayısını doğrudan çektiğimiz dizinin uzunluğundan alarak '0' sorununu çözdük
+                const criticalData = Array.isArray(criticalRes.data) ? criticalRes.data : criticalRes.data.data || [];
+                setCriticalProducts(criticalData);
+
+                setStats({
+                    ...summaryRes.data,
+                    outOfStockAlerts: criticalData.length
+                });
+
             } catch (error) {
                 console.error("Dashboard verileri yüklenemedi:", error);
             } finally {
-                setIsLoading(false); // Veri gelse de gelmese de yükleme animasyonunu kapat.
+                setIsLoading(false);
             }
         };
 
         fetchDashboardData();
-    }, []); // Sondaki boş dizi [], bu işlemin sadece sayfa ilk açıldığında 1 kez yapılmasını sağlar.
+    }, []);
 
-    // 3. YARDIMCI BİLEŞEN (StatCard)
-    // Kod tekrarını önlemek için (DRY - Don't Repeat Yourself prensibi) küçük bir kart şablonu oluşturuyoruz.
+    // Kart Şablonu
     const StatCard = ({ title, value, icon: Icon, colorClass, subText }) => (
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col gap-4">
             <div className="flex justify-between items-start">
@@ -50,14 +60,11 @@ const Dashboard = () => {
 
     return (
         <div className="flex flex-col gap-8">
-            {/* Karşılama Alanı */}
             <div>
-                <h1 className="text-3xl font-bold text-slate-900">Hoş Geldin, Mimar 🚀</h1>
+                <h1 className="text-3xl font-bold text-slate-900">Hoş Geldin, Yönetici 🚀</h1>
                 <p className="text-slate-500 mt-1">İşte AuraStock sistemindeki güncel durumun özeti.</p>
             </div>
 
-            {/* İSTATİSTİK KARTLARI - Grid Yapısı */}
-            {/* Tailwind'deki 'grid' yapısı, ekranı sütunlara bölerek düzenli bir yerleşim sağlar. */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard
                     title="Toplam Ürün"
@@ -85,26 +92,67 @@ const Dashboard = () => {
                     value={stats.outOfStockAlerts}
                     icon={AlertTriangle}
                     colorClass="bg-rose-50 text-rose-600"
-                    subText="Takviye gereken ürün sayısı"
+                    subText="Acil takviye gereken ürünler"
                 />
             </div>
 
-            {/* ALT ALAN: Grafik ve Detaylar için Yer Tutucu */}
+            {/* ALT ALAN: Kritik Stok Tablosu ve Hızlı Menü */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 bg-white p-8 rounded-2xl shadow-sm border border-slate-100 min-h-[300px] flex flex-col items-center justify-center text-center">
-                    <TrendingUp size={48} className="text-slate-200 mb-4" />
-                    <h4 className="text-lg font-semibold text-slate-700">Satış ve Stok Trendi</h4>
-                    <p className="text-slate-400 text-sm max-w-xs">İleride buraya Recharts kütüphanesi ile harika grafikler çizeceğiz.</p>
+
+                {/* SOL GENİŞ ALAN: Kritik Stok Uyarıları */}
+                <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                    <div className="p-6 border-b border-slate-100 flex items-center gap-3">
+                        <AlertOctagon className="text-rose-500" size={24} />
+                        <h4 className="text-lg font-bold text-slate-800">Kritik Seviyedeki Ürünler (20 Adet Altı)</h4>
+                    </div>
+
+                    <div className="p-0">
+                        {criticalProducts.length === 0 ? (
+                            <div className="p-12 text-center text-slate-400">
+                                <CheckCircle2 className="mx-auto mb-3 text-emerald-500 opacity-50" size={48} />
+                                <p>Harika! Şu an kritik seviyede hiçbir ürün bulunmuyor.</p>
+                            </div>
+                        ) : (
+                            <table className="w-full text-left">
+                                <thead className="bg-slate-50 text-slate-500 text-sm">
+                                    <tr>
+                                        <th className="px-6 py-4 font-medium">SKU Kodu</th>
+                                        <th className="px-6 py-4 font-medium">Ürün Adı</th>
+                                        <th className="px-6 py-4 font-medium text-right">Kalan Stok</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {criticalProducts.map((product) => (
+                                        <tr key={product.id} className="hover:bg-slate-50 transition-colors">
+                                            <td className="px-6 py-4 text-slate-500 font-mono text-sm">{product.sku}</td>
+                                            <td className="px-6 py-4 font-medium text-slate-800">{product.name}</td>
+                                            <td className="px-6 py-4 text-right">
+                                                <span className={`inline-block px-3 py-1 rounded-full font-bold text-sm ${product.currentStock <= 0
+                                                        ? 'bg-rose-100 text-rose-700'
+                                                        : 'bg-orange-100 text-orange-700'
+                                                    }`}>
+                                                    {product.currentStock} Adet
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
                 </div>
 
+                {/* SAĞ DAR ALAN: Yönetim Paneli */}
                 <div className="bg-slate-900 p-8 rounded-2xl text-white flex flex-col justify-between">
                     <div>
-                        <h4 className="text-xl font-bold mb-2">Hızlı Operasyon</h4>
-                        <p className="text-slate-400 text-sm">Bekleyen mal kabul veya sevkıyat işlemlerini Operasyon ekranından yönetebilirsin.</p>
+                        <h4 className="text-xl font-bold mb-4">Hızlı Kısayollar</h4>
+                        <p className="text-slate-400 text-sm mb-6">Sistemdeki operasyonları hızlıca yönetmek için ilgili sayfalara geçiş yapabilirsiniz.</p>
+                        <ul className="space-y-3 text-slate-300">
+                            <li className="flex items-center gap-2 border-b border-slate-700 pb-2 hover:text-white cursor-pointer transition-colors">→ Yeni Mal Kabul Gir</li>
+                            <li className="flex items-center gap-2 border-b border-slate-700 pb-2 hover:text-white cursor-pointer transition-colors">→ Yeni Ürün Tanımla</li>
+                            <li className="flex items-center gap-2 pb-2 hover:text-white cursor-pointer transition-colors">→ Detaylı Stok Raporu Al</li>
+                        </ul>
                     </div>
-                    <button className="bg-white text-slate-900 font-bold py-3 px-6 rounded-xl mt-8 hover:bg-blue-50 transition-colors">
-                        Sistemi Kontrol Et
-                    </button>
                 </div>
             </div>
         </div>
