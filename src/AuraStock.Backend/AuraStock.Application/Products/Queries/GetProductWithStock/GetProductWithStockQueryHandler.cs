@@ -24,13 +24,14 @@ public class GetProductsWithStockQueryHandler : IRequestHandler<GetProductsWithS
             p.ProductSku,
             p.ProductName,
             p.UnitCost,
-            _context.StockMovements
-            .Where(sm => sm.ProductId == p.Id && sm.Type == MovementType.In)
-            .Sum(sm => (int?)sm.Quantity) ?? 0
+            // ÇÖZÜM BURADA: Her iki işlem de parantez içine alındı
+            (_context.StockMovements
+                .Where(sm => sm.ProductId == p.Id && sm.Type == MovementType.In)
+                .Sum(sm => (int?)sm.Quantity) ?? 0)
             -
-             _context.StockMovements
-            .Where(sm => sm.ProductId == p.Id && sm.Type == MovementType.Out)
-            .Sum(sm => (int?)sm.Quantity) ?? 0
+            (_context.StockMovements
+                .Where(sm => sm.ProductId == p.Id && sm.Type == MovementType.Out)
+                .Sum(sm => (int?)sm.Quantity) ?? 0)
         )).ToListAsync(cancellationToken);
 
         return products;
