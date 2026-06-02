@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using MediatR;
 using AuraStock.Application.Dashboard.Queries.GetDashboardSummary;
 using AuraStock.Application.Dashboard.Queries.GetCriticalStockProducts;
+using AuraStock.Application.Dashboard.Queries.GetDailyMovementStats;
 using Microsoft.AspNetCore.Components.Forms;
 
 namespace AuraStock.API.Controllers;
@@ -30,6 +31,15 @@ public class DashboardController : ControllerBase
     public async Task<IActionResult> GetCriticalStock([FromQuery] int threshold = 20)
     {
         var query = new GetCriticalStockProductsQuery(threshold);
+        var result = await _mediator.Send(query);
+
+        return Ok(result);
+    }
+
+    [HttpGet("daily-movements")]
+    public async Task<IActionResult> GetDailyMovements()
+    {
+        var query = new GetDailyMovementStatsQuery();
         var result = await _mediator.Send(query);
 
         return Ok(result);

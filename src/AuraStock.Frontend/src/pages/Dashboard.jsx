@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import apiClient from '../api/axiosClient';
 import { Package, Activity, Calendar, AlertTriangle, AlertOctagon, CheckCircle2 } from 'lucide-react';
+// YENİ: Recharts importları
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const Dashboard = () => {
-    // Stateler
     const [stats, setStats] = useState({
         totalProducts: 0,
         totalMovements: 0,
@@ -11,21 +12,25 @@ const Dashboard = () => {
         outOfStockAlerts: 0
     });
     const [criticalProducts, setCriticalProducts] = useState([]);
+    const [chartData, setChartData] = useState([]); // YENİ: Grafik verisi için state
     const [isLoading, setIsLoading] = useState(true);
 
-    // API İstekleri
     useEffect(() => {
         const fetchDashboardData = async () => {
             try {
-                // Her iki veriyi eşzamanlı (paralel) çekerek hızı ikiye katlıyoruz
-                const [summaryRes, criticalRes] = await Promise.all([
+                // YENİ: 3 isteği aynı anda (paralel) gönderiyoruz
+                const [summaryRes, criticalRes, chartRes] = await Promise.all([
                     apiClient.get('/dashboard/summary'),
-                    apiClient.get('/dashboard/critical-stock?threshold=20')
+                    apiClient.get('/dashboard/critical-stock?threshold=20'),
+                    apiClient.get('/dashboard/daily-movements') // Grafiği çeken API
                 ]);
 
-                // Kritik ürün sayısını doğrudan çektiğimiz dizinin uzunluğundan alarak '0' sorununu çözdük
                 const criticalData = Array.isArray(criticalRes.data) ? criticalRes.data : criticalRes.data.data || [];
                 setCriticalProducts(criticalData);
+
+                // Grafik verisini state'e yaz
+                const chartDataArray = Array.isArray(chartRes.data) ? chartRes.data : chartRes.data.data || [];
+                setChartData(chartDataArray);
 
                 setStats({
                     ...summaryRes.data,
@@ -42,7 +47,6 @@ const Dashboard = () => {
         fetchDashboardData();
     }, []);
 
-    // Kart Şablonu
     const StatCard = ({ title, value, icon: Icon, colorClass, subText }) => (
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col gap-4">
             <div className="flex justify-between items-start">
@@ -96,10 +100,36 @@ const Dashboard = () => {
                 />
             </div>
 
-            {/* ALT ALAN: Kritik Stok Tablosu ve Hızlı Menü */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* ORTA ALAN: Grafik (YENİ EKLENDİ) */}
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 w-full">
+                <h3 className="text-lg font-bold text-slate-800 mb-6">Son 7 Günlük Depo Trafiği</h3>
+                <div className="h-[350px] w-full">
+                    {chartData.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#64748b' }} dy={10} />
+                                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b' }} dx={-10} />
+                                <Tooltip
+                                    cursor={{ fill: '#f8fafc' }}
+                                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                />
+                                <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
+                                {/* Renkler Operasyon ekranındaki temamıza uyumlu: Yeşil Giriş, Kırmızı Çıkış */}
+                                <Bar dataKey="inAmount" name="Mal Kabul (Giriş)" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                                <Bar dataKey="outAmount" name="Sevkıyat (Çıkış)" fill="#f43f5e" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center text-slate-400">
+                            Grafik verisi yükleniyor...
+                        </div>
+                    )}
+                </div>
+            </div>
 
-                {/* SOL GENİŞ ALAN: Kritik Stok Uyarıları */}
+            {/* ALT ALAN: Kritik Stok Tablosu ve Hızlı Menü (Aynen duruyor) */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
                     <div className="p-6 border-b border-slate-100 flex items-center gap-3">
                         <AlertOctagon className="text-rose-500" size={24} />
@@ -142,7 +172,6 @@ const Dashboard = () => {
                     </div>
                 </div>
 
-                {/* SAĞ DAR ALAN: Yönetim Paneli */}
                 <div className="bg-slate-900 p-8 rounded-2xl text-white flex flex-col justify-between">
                     <div>
                         <h4 className="text-xl font-bold mb-4">Hızlı Kısayollar</h4>
